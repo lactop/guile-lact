@@ -51,5 +51,5 @@
          (lambda err default))) 
 
 ; Разбиение строки на элементы с выбором непустных элементов (non empty)
-(define string-split-ne (compose (lambda (l) (filter string-inhabited? l))
-                                 string-split)) 
+(define string-split-ne
+  (compose (lambda (l) (filter string-inhabited? l)) string-split)) 

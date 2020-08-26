@@ -6,7 +6,6 @@
                #:export (dump-error dump-parse-error lact-error-handler))
 
 ; Вывод сообщения в стандартный поток ошибок
-; (define (dump-error fmt . args) (apply format (current-error-port) fmt args)) 
 (define dump-error
   (let ((p (current-error-port)))
     (lambda (fmt . args) (apply format p fmt args))))
@@ -34,10 +33,8 @@
 ; Стандартный обработчик ошибок
 (define (lact-error-handler clarification)
   (lambda (type . body)
-    ; (dump-error "HANDLER. T: ~s. B: ~s~%" type body)
     (cond ((system-error? type)
            (let-values (((fn fmt args code) (apply values body)))
-             ; (dump-error "HANDLER. fn: ~s. fmt: ~s. args: ~s~%" fn fmt args)
              (if (string-null? clarification)
                  (apply dump-error (string-append fn ": " fmt "~%") args)
                  (apply dump-error (string-append clarification ": " fn ": " fmt "~%") args))))

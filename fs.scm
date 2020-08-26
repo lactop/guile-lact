@@ -3,7 +3,7 @@
                #:use-module (lact utils)
                #:use-module (lact error-handling)
                #:export (ensure-path! read-path!
-                         mode-r mode-rx mode-rwx stat-match? file-ok?
+                         mode-r mode-rx mode-rw mode-rwx stat-match? file-ok?
                          extension drop-extension
                          split-path join-path repath normalize-path))
 
@@ -12,6 +12,7 @@
 ; Режимы доступа к файлам
 (define mode-r #o400) 
 (define mode-rx #o500)
+(define mode-rw #o600)
 (define mode-rwx #o700)  
  
 ; Проверка структуры stat на соответствие типу и режиму доступа
