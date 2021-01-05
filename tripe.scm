@@ -23,6 +23,12 @@
 (define input car)
 (define output cdr)
 
+; Закрытие всех портов, за исключением перечисленных в списке ports. FIXME: Код
+; наивный, если сравнивать с ice-9 popen. Необходимо лучше понимать Guile
+
+(define (close-ports-excepting . ports)
+  (port-for-each (lambda (p) (unless (member p ports) (close-port p)))))
+
 (define (ssh-command user host words)
   (list "ssh"
         "-CTax" ; сжатие, без: терминала, ssh-агента и X11
@@ -33,6 +39,8 @@
 (define (exec-with-pipes in out err words)
   (dump-error "executing: ~s~%" words)
 
+  (close-ports-excepting in out err)
+
   (dup2 (port->fdes in) 0)
   (dup2 (port->fdes out) 1)
   (dup2 (port->fdes err) 2)
@@ -40,7 +48,7 @@
   (close-input-port in)
   (close-output-port out)
   (close-output-port err)
-  
+ 
   (apply execlp (car words) words)
 
   (exit 1))
