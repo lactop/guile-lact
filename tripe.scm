@@ -7,6 +7,7 @@
                #:use-module (srfi srfi-9)
                #:use-module (srfi srfi-9 gnu)
                #:use-module (lact error-handling)
+               #:use-module (lact ssh)
                #:export (open-ssh-tripe open-tripe close-tripe
                          tripe? tripe:input tripe:output tripe:error tripe:pid
                          read-all))
@@ -28,13 +29,6 @@
 
 (define (close-ports-excepting . ports)
   (port-for-each (lambda (p) (unless (member p ports) (close-port p)))))
-
-(define (ssh-command user host words)
-  (list "ssh"
-        "-CTax" ; сжатие, без: терминала, ssh-агента и X11
-        "-o" "ConnectTimeout=1"
-        (format #f "~a@~a" user host)
-        (string-join (map (lambda (w) (format #f "'~a'" w)) words))))
 
 (define (exec-with-pipes in out err words)
   (dump-error "executing: ~s~%" words)
@@ -73,8 +67,8 @@
                  (close-output-port (output err))
                  (tripe (output in) (input out) (input err) p))))))
 
-(define (open-ssh-tripe user host cmd . cmds)
-  (apply open-tripe (ssh-command user host (cons cmd cmds))))
+(define (open-ssh-tripe host cmd . cmds)
+  (apply open-tripe (ssh-command host (cons cmd cmds))))
 
 (define (close-tripe t)
   (close-output-port (tripe:input t))
