@@ -1,6 +1,7 @@
 ; Модуль с процедурами, необходимыми для обработки ошибок (в виде исключений)
 
 (define-module (lact error-handling)
+               #:use-module (ice-9 format)
                #:use-module (lact utils)
                #:use-module (srfi srfi-11)
                #:export (dump-error dump-parse-error lact-error-handler))
