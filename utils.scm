@@ -12,7 +12,8 @@
                          inhabited?
                          string-inhabited?
                          singleton?
-                         string-split-ne))
+                         string-split-ne
+                         dump))
 
 ; Различные доступы к элементам структур, состоящих из пар (списки)
 (define head car)
@@ -53,3 +54,7 @@
 ; Разбиение строки на элементы с выбором непустных элементов (non empty)
 (define string-split-ne
   (compose (lambda (l) (filter string-inhabited? l)) string-split)) 
+
+(define dump
+  (let ((p (current-output-port)))
+    (lambda (fmt . arguments) (apply format p fmt arguments))))
