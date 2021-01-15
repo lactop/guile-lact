@@ -77,11 +77,17 @@
   (unless (strings-inhabited? source target)
     (error "Source and target directories should be specified. Given:" source target))
 
-  (let ((part-1 (compose (prepend "rsync" "-r" "--mkpath")
-                         (if (string-inhabited? key)
-                             (prepend "-e" (format #f "ssh -i '~a'" key))
-                             pass)
-                         (prepend source)))
-        (at (user-at-host user)))
+  (let* ((rsync-path (lambda (t)
+                       ; Несколько хитрое формирование строки-аргумента для
+                       ; rsync-path.  После = командная строка должна быть без
+                       ; группирующих кавычек.
+                       (format #f "--rsync-path=mkdir -p '~a' && rsync" t)))
+
+         (part-1 (compose (prepend "rsync" "-r")
+                          (if (string-inhabited? key)
+                              (prepend "-e" (format #f "ssh -i '~a'" key))
+                              pass)
+                          (prepend (rsync-path target) source)))
+         (at (user-at-host user)))
     (lambda (host)
       (part-1 (list (format #f "~a:~a" (at host) target))))))
