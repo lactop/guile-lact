@@ -13,7 +13,9 @@
                          string-inhabited?
                          singleton?
                          string-split-ne
-                         dump))
+                         dump
+                         spawn
+                         ))
 
 ; Различные доступы к элементам структур, состоящих из пар (списки)
 (define head car)
@@ -58,3 +60,11 @@
 (define dump
   (let ((p (current-output-port)))
     (lambda (fmt . arguments) (apply format p fmt arguments))))
+
+; Простой фоновый запуск команды
+(define (spawn command)
+  (let ((pid (false-if-exception (primitive-fork))))
+    (if (zero? pid)
+        (begin (false-if-exception (apply execlp (car command) command))
+               (exit 1))
+        pid)))
