@@ -8,20 +8,6 @@
 (define (string-inhabited? s) (and (string? s) (not (string-null? s))))
 (define (strings-inhabited? . S) (every string-inhabited? S))
 
-; (define (with-key . arguments)
-;   (let ((k (fluid-ref ssh-key)))
-;     (if (string-inhabited? k)
-;         (cons* "-i" k arguments)
-;         arguments)))
-; 
-; (define (ssh-command host words)
-;   (cons "ssh"
-;         (with-key
-;           "-CTax" ; сжатие, без: терминала, ssh-агента и X11
-;           "-o" "ConnectTimeout 1"
-;           (format #f "~a@~a" (user) host)
-;           (string-join (map (lambda (w) (format #f "'~a'" w)) words)))))
-
 (define (clarify-user fu)
   (let ((eu (getenv "USER")))
     (if (string-inhabited? fu) 
