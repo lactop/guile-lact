@@ -31,7 +31,7 @@
   (port-for-each (lambda (p) (unless (member p ports) (close-port p)))))
 
 (define (exec-with-pipes in out err words)
-  (dump-error "executing: ~s~%" words)
+  ; (dump-error "executing: ~s~%" words)
 
   (close-ports-excepting in out err)
 
@@ -67,8 +67,8 @@
                  (close-output-port (output err))
                  (tripe (output in) (input out) (input err) p))))))
 
-(define (open-ssh-tripe host cmd . cmds)
-  (apply open-tripe (ssh-command host (cons cmd cmds))))
+; (define (open-ssh-tripe host cmd . cmds)
+;   (apply open-tripe (ssh-command host (cons cmd cmds))))
 
 (define (close-tripe t)
   (close-output-port (tripe:input t))
