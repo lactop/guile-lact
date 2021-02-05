@@ -15,7 +15,7 @@
                          string-split-ne
                          dump
                          spawn
-                         ))
+                         collect-pid))
 
 ; Различные доступы к элементам структур, состоящих из пар (списки)
 (define head car)
@@ -68,3 +68,9 @@
         (begin (false-if-exception (apply execlp (car command) command))
                (exit 1))
         pid)))
+
+; Обёртка над waitpid: опрашивает данный pid, если процесс завершился возвращает
+; pid и статус в паре, если нет, возвращает pid. Это удобно для collect-процедур
+; в tracker-модулях
+(define (collect-pid pid)
+  (let ((r (waitpid pid WNOHANG))) (if (= pid (car r)) r pid)))
