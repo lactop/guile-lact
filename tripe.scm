@@ -49,10 +49,20 @@
 
 ; words -- это слова командной строки в терминологии Bash
 
+(define (tweak-pipe p)
+  (let ((i (input p))
+        (o (output p)))
+    (setvbuf o 'line)
+    (fcntl o F_SETFD (logior FD_CLOEXEC (fcntl o F_GETFD)))
+    (fcntl i F_SETFD (logior FD_CLOEXEC (fcntl i F_GETFD)))))
+
 (define (open-tripe word . words)
   (let ((in (pipe))
         (out (pipe))
         (err (pipe)))
+    (tweak-pipe out)
+    (tweak-pipe err)
+    (tweak-pipe in)
     (let ((p (primitive-fork)))
       (if (zero? p)
           (begin (close-output-port (output in))
