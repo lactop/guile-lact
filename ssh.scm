@@ -69,7 +69,7 @@
                        ; группирующих кавычек.
                        (format #f "--rsync-path=mkdir -p '~a' && rsync" t)))
 
-         (part-1 (compose (prepend "rsync" "-r")
+         (part-1 (compose (prepend "rsync" "-rc")
                           (if (string-inhabited? key)
                               (prepend "-e" (format #f "ssh -i '~a'" key))
                               pass)
