@@ -9,7 +9,7 @@
 ; Вывод сообщения в стандартный поток ошибок
 (define dump-error
   (let ((p (current-error-port)))
-    (lambda (fmt . args) (apply format p fmt args))))
+    (lambda (fmt . args) (apply format p fmt args) (force-output p))))
 
 ; Вывод сообщения об ошибке разбора. Форма данных об ошибке -- это список строк,
 ; первой из которых является исходная строка, за которым следует список строк с
