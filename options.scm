@@ -1,7 +1,11 @@
 (define-module (lact options)
-               #:use-modules (srfi srfi-1)
-               #:use-modules (srfi srfi-11)
-               #:use-modules (lact error-handling))
+               #:use-module (srfi srfi-1)
+               #:use-module (srfi srfi-11)
+               #:use-module (lact error-handling)
+               #:export (options-usage options-flags
+                         undash
+                         gather-list gather-rest gather-string gather-boolean
+                         default))
 
 (define options-usage
   (make-fluid (lambda args (error "call to undefined usage:" args))))
@@ -19,27 +23,27 @@
 ; нужно, проверяет, не установлено ли. Если по результатам проверки значение
 ; установлено, with-unset вызывает ошибку. Иначе, передаёт список в продолжение
 
-(define (with-unset am unset? v k)
-  (if (or (string-null? am)
+(define (with-unset already-defined-message unset? v k)
+  (if (or (string-null? already-defined-message)
           (unset? v))
       (k v)
-      ((fluid-ref options-usage) am v)))
+      ((fluid-ref options-usage) already-defined-message v)))
 
-(define (gather-list get set already-defined-message)
+(define (gather-list get set adm)
   (let ((usage (fluid-ref options-usage))
         (flags (fluid-ref options-flags)))
     (lambda (args opts)
-      (with-unset already-defined-message null? (get opts)
+      (with-unset adm null? (get opts)
                   (lambda (l)
                     (let-values (((words rest) (span (compose not flag?) (cdr args))))
                       (if (null? words)
-                          (usage "no parameter list:" (args))
+                          (usage "no parameter list:" args)
                           (flags rest (set opts (fold cons l words))))))))))
 
-(define (gather-rest get set already-message)
+(define (gather-rest get set adm)
   (let ((usage (fluid-ref options-usage)))
     (lambda (args opts)
-      (with-unset already-message null? (get opts)
+      (with-unset adm null? (get opts)
                   (lambda (l)
                     (if (null? (cdr args))
                         (usage "no parameter list:" args)
@@ -50,13 +54,13 @@
                         ; тоже задом-наперёд, а потом результат разворачивается
                         (set opts (reverse (fold cons l (cdr args))))))))))
 
-(define (gather-string get set already-message)
+(define (gather-string get set adm)
   (let ((usage (fluid-ref options-usage))
         (flags (fluid-ref options-flags)))
     (lambda (args opts)
-      (with-unset already-message string-null? (get opts)
+      (with-unset adm string-null? (get opts)
                   (lambda (s)
-                    (if (null? (cdr args))
+                    (if (or (null? (cdr args)) (flag? (cadr args)))
                         (usage "no parameter:" args)
                         (flags (cddr args) (set opts (cadr args)))))))))
 
