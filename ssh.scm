@@ -2,10 +2,12 @@
 
 (define-module (lact ssh)
                #:use-module (srfi srfi-1)
+               #:use-module (ice-9 popen)
+               #:use-module (lact utils)
                #:use-module (lact error-handling)
-               #:export (ssh-command rsync-command shell-expression))
+               #:export (ssh-command rsync-command shell-expression
+                         key-exists? ssh-keygen ensure-key!))
 
-(define (string-inhabited? s) (and (string? s) (not (string-null? s))))
 (define (strings-inhabited? . S) (every string-inhabited? S))
 
 (define (clarify-user fu)
@@ -30,6 +32,7 @@
 ; Надо формировать командные строки в виде списков слов. Нечто придётся
 ; пропускать, нечто -- добавлять, в зависимости от различных условий. Поэтому,
 ; стандартный трюк в стиле Клейсли с действиями pass и prepend.
+
 (define pass identity)
 (define (prepend . arguments) (lambda (l) (append arguments l))) 
 
@@ -46,16 +49,17 @@
                     '()))))
 
 (define (shell-expression work-directory words)
-  (cond ; Если нет списка слов команды, то делать нечего
-        ((null? words) "")
+  (cond
+    ; Если нет списка слов команды, то делать нечего
+    ((null? words) "")
 
-        ; Если указана рабочая директория, то надо добавить к составленной из
-        ; words команде переход в директорию.
-        ((string-inhabited? work-directory) (string-append
-                                              (format #f "cd '~a' && " work-directory)
-                                              (shell-expression "" words)))
+    ; Если указана рабочая директория, то надо добавить к составленной из words
+    ; команде переход в директорию.
+    ((string-inhabited? work-directory) (string-append
+                                          (format #f "cd '~a' && " work-directory)
+                                          (shell-expression "" words)))
 
-        (else (string-join (map (lambda (w) (format #f "'~a'" w)) words)))))
+    (else (string-join (map (lambda (w) (format #f "'~a'" w)) words)))))
 
 ; Кажется, что подразумевать для синхронизации директории по умолчанию -- не
 ; удачная идея. Поэтому, ошибка, если директории не указаны.
@@ -77,3 +81,41 @@
          (at (user-at-host user)))
     (lambda (host)
       (part-1 (list (format #f "~a:~a" (at host) target))))))
+
+; ПРОЦЕДУРЫ ДЛЯ РАБОТЫ С SSH-КЛЮЧАМИ
+
+(define (key-exists? key pub)
+  ; В content список из пар (имя . содержимое файла по мнению утилиты file)
+  (let* ((content (stream->list
+                    (stream-map
+                      cons
+                      (stream key pub)
+                      (pipe->string-stream
+                        (open-pipe* OPEN_READ "file" "-LNb" key pub)))))
+         (key-content (assoc key content))
+         (pub-content (assoc pub content)))
+    (and (pair? key-content)
+         (string=? "OpenSSH private key" (cdr key-content))
+         (pair? pub-content)
+         (string=? "OpenSSH RSA public key" (cdr pub-content)))))
+
+(define (ssh-keygen path)
+  (let ((comment (format #f "Testpad key for ~a@~a"
+                         (getenv "USER") 
+                         (gethostname))))
+    (when (fail? (system* "ssh-keygen" "-trsa" "-b2048"
+                          "-N" ""
+                          "-C" comment
+                          "-f" path))
+      (error (format #f "~a generation failed: ~a" comment path)))))
+
+(define (ensure-key!)
+  (let ((key (join-path state-path "rsa-key"))
+        (pub (join-path state-path "rsa-key.pub")))
+    (if (key-exists? key pub)
+        (dump-error "Key exists: ~a~%" key)
+        (begin (ensure-path! (split-path state-path))
+               (ssh-keygen key)))
+    ; Кажется удобным вернуть открытый ключ. Он нужен для проверки того, есть ли
+    ; доступ к пользователю testpad на целевых хостах
+    (with-input-from-file pub read-line)))

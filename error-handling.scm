@@ -1,15 +1,18 @@
 ; Модуль с процедурами, необходимыми для обработки ошибок (в виде исключений)
 
 (define-module (lact error-handling)
-               #:use-module (ice-9 format)
-               #:use-module (lact utils)
                #:use-module (srfi srfi-11)
-               #:export (dump-error dump-parse-error lact-error-handler))
+               #:use-module (ice-9 format) 
+               #:use-module (lact utils) 
+               #:export (dump-parse-error
+                         ; dump-error 
+                         lact-error-handler
+                         error-if-system-exception))
 
-; Вывод сообщения в стандартный поток ошибок
-(define dump-error
-  (let ((p (current-error-port)))
-    (lambda (fmt . args) (apply format p fmt args) (force-output p))))
+; ; Вывод сообщения в стандартный поток ошибок
+; (define dump-error
+;   (let ((p (current-error-port)))
+;     (lambda (fmt . args) (apply format p fmt args) (force-output p))))
 
 ; Вывод сообщения об ошибке разбора. Форма данных об ошибке -- это список строк,
 ; первой из которых является исходная строка, за которым следует список строк с
@@ -50,3 +53,10 @@
     ; Всегда возвращаем false, чтобы иметь возможность работать с ошибками во
     ; внешнем контексте
     #f))
+
+; Видимо, довольно часто придётся возвращать системную ошибку, когда всё
+; навернулось. Абстракция макросом
+(define-syntax error-if-system-exception
+  (syntax-rules ()
+    ((error-if-system-exception expr ...)
+     (catch 'system-error (lambda () expr ...) list)))) 

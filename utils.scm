@@ -13,7 +13,7 @@
                          string-inhabited?
                          singleton?
                          string-split-ne
-                         dump
+                         dump dump-error
                          spawn
                          collect-pid))
 
@@ -27,6 +27,9 @@
 
 ; Список состоит из одного элемента?
 (define (singleton? l) (and (pair? l) (null? (tail l))))  
+
+(define (true? v) (and (boolean? v) v))
+(define (false? v) (and (boolean? v) (not v)))
 
 ; Поток чтения строк из порта
 (define-stream (port->string-stream p)
@@ -57,9 +60,12 @@
 (define string-split-ne
   (compose (lambda (l) (filter string-inhabited? l)) string-split)) 
 
-(define dump
-  (let ((p (current-output-port)))
-    (lambda (fmt . arguments) (apply format p fmt arguments))))
+; Вывод всякого разного
+(define (dumper p) (lambda (fmt . args)
+                     (apply format p fmt args) (force-output p)))
+
+(define dump (dumper (current-output-port)))
+(define dump-error (dumper (current-error-port))) 
 
 ; Простой фоновый запуск команды
 (define (spawn command)

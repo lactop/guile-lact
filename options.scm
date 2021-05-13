@@ -1,7 +1,7 @@
 (define-module (lact options)
                #:use-module (srfi srfi-1)
                #:use-module (srfi srfi-11)
-               #:use-module (lact error-handling)
+               #:use-module (lact utils)
                #:export (options-usage options-flags
                          undash
                          gather-list gather-rest gather-string gather-boolean
@@ -65,8 +65,7 @@
                         (flags (cddr args) (set opts (cadr args)))))))))
 
 (define (gather-boolean get set already-message)
-  (let ((flags (fluid-ref options-flags))
-        (false? (lambda (b) (boolean? b) (not b))))
+  (let ((flags (fluid-ref options-flags)))
     (lambda (args opts)
       (with-unset already-message false? (get opts)
                   (lambda (b)
