@@ -11,7 +11,8 @@
                #:use-module (lact fs)
                #:use-module (lact error-handling)
                #:export (ssh-command rsync-command shell-expression
-                         ssh-key-description  ensure-key!))
+                         ssh-key-description
+                         ensure-key!))
 
 (define (strings-inhabited? . S) (every string-inhabited? S))
 
@@ -107,8 +108,9 @@
       (let-values (((C P) (let ((n (if (string-null? service)
                                        "generic"
                                        service)))
-                            (values (format #f "~a key from ~a@~a" n u h)
-                                    (format #f "~a/~a-~a-~a-rsa" path n u h))))
+                            (values
+                              (format #f "~a key for ~a@~a" n u h)
+                              (format #f "~a/~a-~a-~a-rsa-key" path n u h))))
                    ((path-items) (split-path path)))
         (ssh-key P (string-append P ".pub") path-items C)))))
 

@@ -12,10 +12,12 @@
                          inhabited?
                          string-inhabited?
                          singleton?
+                         true? false?
                          string-split-ne
                          dump dump-error
                          spawn
-                         collect-pid))
+                         collect-pid
+                         success? fail?))
 
 ; Различные доступы к элементам структур, состоящих из пар (списки)
 (define head car)
@@ -80,3 +82,7 @@
 ; в tracker-модулях
 (define (collect-pid pid)
   (let ((r (waitpid pid WNOHANG))) (if (= pid (car r)) r pid)))
+
+; Проверка статуса завершения процесса
+(define success? (compose zero? status:exit-val))
+(define fail? (compose not success?)) 
