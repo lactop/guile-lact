@@ -6,8 +6,7 @@
                #:use-module (ice-9 popen)
                #:use-module (lact utils)
                #:use-module (lact error-handling)
-               #:export (ssh-command rsync-command shell-expression
-                         key-exists? ssh-keygen ensure-key!))
+               #:export (ssh-command rsync-command shell-expression ensure-key!))
 
 (define (strings-inhabited? . S) (every string-inhabited? S))
 
@@ -138,8 +137,11 @@
       (dump-error "key exists: ~a~%" (k #:key))
       (begin (ensure-path! (k #:path))
              (ssh-keygen (k #:key))))
-  (values (with-input-from-file (k #:pub) read-line))
-  )
+  ; Пара строк, содержащих открытый и закрытый ключи
+  (values (with-input-from-file (k #:pub) read-line)
+          (string-join (stream->list
+                         (port->string-stream (open-input-file (k #:key))))
+                       (string #:\newline))))
 
 ;   (let ((key (join-path state-path "rsa-key"))
 ;         (pub (join-path state-path "rsa-key.pub")))
