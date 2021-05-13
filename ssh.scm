@@ -2,11 +2,16 @@
 
 (define-module (lact ssh)
                #:use-module (srfi srfi-1)
+               #:use-module (srfi srfi-9 gnu)
                #:use-module (srfi srfi-11)
+               #:use-module (srfi srfi-41)
                #:use-module (ice-9 popen)
+               #:use-module (ice-9 rdelim)
                #:use-module (lact utils)
+               #:use-module (lact fs)
                #:use-module (lact error-handling)
-               #:export (ssh-command rsync-command shell-expression ensure-key!))
+               #:export (ssh-command rsync-command shell-expression
+                         ssh-key-description  ensure-key!))
 
 (define (strings-inhabited? . S) (every string-inhabited? S))
 
@@ -87,7 +92,15 @@
 
 ; ПРОЦЕДУРЫ ДЛЯ РАБОТЫ С SSH-КЛЮЧАМИ
 
-(define ssh-key 
+(define-immutable-record-type SSH-Key
+  (ssh-key key pub path comment)
+  ssk-key?
+  (key k:key)
+  (pub k:pub)
+  (path k:path)
+  (comment k:comment)) 
+
+(define ssh-key-description
   (let ((u (getenv "USER"))
         (h (gethostname)))
     (lambda (path service)
@@ -97,13 +110,7 @@
                             (values (format #f "~a key from ~a@~a" n u h)
                                     (format #f "~a/~a-~a-~a-rsa" path n u h))))
                    ((path-items) (split-path path)))
-        (lambda (rq)
-          (case rq
-            ((#:key) P)
-            ((#:pub) (string-append P ".pub"))
-            ((#:path) path-items)
-            ((#:comment) C)
-            (else (error "unknown request for ssh key:" rq))))))))
+        (ssh-key P (string-append P ".pub") path-items C)))))
 
 (define (key-exists? k)
   ; В content список из пар (имя . содержимое файла по мнению утилиты file)
@@ -122,10 +129,9 @@
          (string=? "OpenSSH private key" (cdr key-content))
          (string=? "OpenSSH RSA public key" (cdr pub-content)))))
 
-(define (ssh-keygen path)
-  (let ((comment (format #f "Testpad key for ~a@~a"
-                         (getenv "USER") 
-                         (gethostname))))
+(define (ssh-keygen k)
+  (let ((path (k:key k))
+        (comment (k:comment k)))
     (when (fail? (system* "ssh-keygen" "-trsa" "-b2048"
                           "-N" ""
                           "-C" comment
@@ -134,13 +140,13 @@
 
 (define (ensure-key! k)
   (if (key-exists? k)
-      (dump-error "key exists: ~a~%" (k #:key))
-      (begin (ensure-path! (k #:path))
-             (ssh-keygen (k #:key))))
+      (dump-error "key exists: ~a~%" (k:key k))
+      (begin (ensure-path! (k:path k))
+             (ssh-keygen k)))
   ; Пара строк, содержащих открытый и закрытый ключи
-  (values (with-input-from-file (k #:pub) read-line)
+  (values (with-input-from-file (k:pub k) read-line)
           (string-join (stream->list
-                         (port->string-stream (open-input-file (k #:key))))
+                         (port->string-stream (open-input-file (k:key k))))
                        (string #:\newline))))
 
 ;   (let ((key (join-path state-path "rsa-key"))
