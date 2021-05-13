@@ -2,6 +2,7 @@
 
 (define-module (lact ssh)
                #:use-module (srfi srfi-1)
+               #:use-module (srfi srfi-11)
                #:use-module (ice-9 popen)
                #:use-module (lact utils)
                #:use-module (lact error-handling)
@@ -23,8 +24,8 @@
 (define (user-at-host user)
   (let ((u (clarify-user user)))
     (if (string-inhabited? u)
-        ; Если имя пользователя указано, то возвращаем приписыватель этого имени к
-        ; адресу хоста
+        ; Если имя пользователя указано, то возвращаем приписыватель этого имени
+        ; к адресу хоста
         (lambda (host) (format #f "~a@~a" u host))
         ; Иначе, возвращатель адреса хоста
         identity)))
@@ -38,7 +39,8 @@
 
 (define (ssh-command user key command)
   (let ((part-1 (compose (prepend "ssh"
-                                  "-CTax" ; сжатие, без: терминала, ssh-агента, X11
+                                  ; сжатие, без: терминала, ssh-агента, X11 
+                                  "-CTax" 
                                   "-o" "ConnectTimeout 1")
                          (if (string-inhabited? key) (prepend "-i" key) pass)))
         (at (user-at-host user))
@@ -55,9 +57,9 @@
 
     ; Если указана рабочая директория, то надо добавить к составленной из words
     ; команде переход в директорию.
-    ((string-inhabited? work-directory) (string-append
-                                          (format #f "cd '~a' && " work-directory)
-                                          (shell-expression "" words)))
+    ((string-inhabited? work-directory)
+     (string-append (format #f "cd '~a' && " work-directory)
+                    (shell-expression "" words)))
 
     (else (string-join (map (lambda (w) (format #f "'~a'" w)) words)))))
 
@@ -65,7 +67,9 @@
 ; удачная идея. Поэтому, ошибка, если директории не указаны.
 (define (rsync-command user key source target)
   (unless (strings-inhabited? source target)
-    (error "Source and target directories should be specified. Given:" source target))
+    (error "Source and target directories should be specified. Given:"
+           source
+           target))
 
   (let* ((rsync-path (lambda (t)
                        ; Несколько хитрое формирование строки-аргумента для
@@ -84,9 +88,29 @@
 
 ; ПРОЦЕДУРЫ ДЛЯ РАБОТЫ С SSH-КЛЮЧАМИ
 
-(define (key-exists? key pub)
+(define ssh-key 
+  (let ((u (getenv "USER"))
+        (h (gethostname)))
+    (lambda (path service)
+      (let-values (((C P) (let ((n (if (string-null? service)
+                                       "generic"
+                                       service)))
+                            (values (format #f "~a key from ~a@~a" n u h)
+                                    (format #f "~a/~a-~a-~a-rsa" path n u h))))
+                   ((path-items) (split-path path)))
+        (lambda (rq)
+          (case rq
+            ((#:key) P)
+            ((#:pub) (string-append P ".pub"))
+            ((#:path) path-items)
+            ((#:comment) C)
+            (else (error "unknown request for ssh key:" rq))))))))
+
+(define (key-exists? k)
   ; В content список из пар (имя . содержимое файла по мнению утилиты file)
-  (let* ((content (stream->list
+  (let* ((key (k #:key))
+         (pub (k #:pub))
+         (content (stream->list
                     (stream-map
                       cons
                       (stream key pub)
@@ -95,8 +119,8 @@
          (key-content (assoc key content))
          (pub-content (assoc pub content)))
     (and (pair? key-content)
-         (string=? "OpenSSH private key" (cdr key-content))
          (pair? pub-content)
+         (string=? "OpenSSH private key" (cdr key-content))
          (string=? "OpenSSH RSA public key" (cdr pub-content)))))
 
 (define (ssh-keygen path)
@@ -109,13 +133,20 @@
                           "-f" path))
       (error (format #f "~a generation failed: ~a" comment path)))))
 
-(define (ensure-key!)
-  (let ((key (join-path state-path "rsa-key"))
-        (pub (join-path state-path "rsa-key.pub")))
-    (if (key-exists? key pub)
-        (dump-error "Key exists: ~a~%" key)
-        (begin (ensure-path! (split-path state-path))
-               (ssh-keygen key)))
-    ; Кажется удобным вернуть открытый ключ. Он нужен для проверки того, есть ли
-    ; доступ к пользователю testpad на целевых хостах
-    (with-input-from-file pub read-line)))
+(define (ensure-key! k)
+  (if (key-exists? k)
+      (dump-error "key exists: ~a~%" (k #:key))
+      (begin (ensure-path! (k #:path))
+             (ssh-keygen (k #:key))))
+  (values (with-input-from-file (k #:pub) read-line))
+  )
+
+;   (let ((key (join-path state-path "rsa-key"))
+;         (pub (join-path state-path "rsa-key.pub")))
+;     (if (key-exists? key pub)
+;         (dump-error "Key exists: ~a~%" key)
+;         (begin (ensure-path! (split-path state-path))
+;                (ssh-keygen key)))
+;     ; Кажется удобным вернуть открытый ключ. Он нужен для проверки того, есть ли
+;     ; доступ к пользователю testpad на целевых хостах
+;     (with-input-from-file pub read-line)) 
