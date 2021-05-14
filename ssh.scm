@@ -116,8 +116,8 @@
 
 (define (key-exists? k)
   ; В content список из пар (имя . содержимое файла по мнению утилиты file)
-  (let* ((key (k #:key))
-         (pub (k #:pub))
+  (let* ((key (k:key k))
+         (pub (k:pub k))
          (content (stream->list
                     (stream-map
                       cons
@@ -150,13 +150,3 @@
           (string-join (stream->list
                          (port->string-stream (open-input-file (k:key k))))
                        (string #:\newline))))
-
-;   (let ((key (join-path state-path "rsa-key"))
-;         (pub (join-path state-path "rsa-key.pub")))
-;     (if (key-exists? key pub)
-;         (dump-error "Key exists: ~a~%" key)
-;         (begin (ensure-path! (split-path state-path))
-;                (ssh-keygen key)))
-;     ; Кажется удобным вернуть открытый ключ. Он нужен для проверки того, есть ли
-;     ; доступ к пользователю testpad на целевых хостах
-;     (with-input-from-file pub read-line)) 
