@@ -102,7 +102,7 @@
   (let ((u (getenv "USER"))
         (h (gethostname)))
     (lambda (path service)
-      (let* ((n (format #f "~a-~a-~a-rsa-key"
+      (let* ((n (format #f "~a-~a-~a-ecdsa-key"
                         (if (string-null? service) "generic" service)
                         u
                         h))
@@ -129,9 +129,8 @@
          (string=? "OpenSSH RSA public key" (cdr pub-content)))))
 
 (define (ssh-keygen k)
-  (let ((path (k:key k))
-        (comment (k:comment k)))
-    (when (fail? (system* "ssh-keygen" "-trsa" "-b2048"
+  (let ((path (k:key k))        (comment (k:comment k)))
+    (when (fail? (system* "ssh-keygen" "-tecdsa" "-b384"
                           "-N" ""
                           "-C" comment
                           "-f" path))
