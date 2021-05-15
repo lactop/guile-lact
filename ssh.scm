@@ -149,4 +149,4 @@
   (values (with-input-from-file (k:pub k) read-line)
           (string-join (stream->list
                          (port->string-stream (open-input-file (k:key k))))
-                       (string #:\newline))))
+                       (string #\newline))))
