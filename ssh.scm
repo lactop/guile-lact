@@ -126,10 +126,11 @@
     (and (pair? key-content)
          (pair? pub-content)
          (string=? "OpenSSH private key" (cdr key-content))
-         (string=? "OpenSSH RSA public key" (cdr pub-content)))))
+         (string=? "OpenSSH ECDSA public key" (cdr pub-content)))))
 
 (define (ssh-keygen k)
-  (let ((path (k:key k))        (comment (k:comment k)))
+  (let ((path (k:key k))
+	(comment (k:comment k)))
     (when (fail? (system* "ssh-keygen" "-tecdsa" "-b384"
                           "-N" ""
                           "-C" comment
