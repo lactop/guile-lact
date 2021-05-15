@@ -17,7 +17,8 @@
                          dump dump-error
                          spawn
                          collect-pid
-                         success? fail?))
+                         success? fail?
+                         pass prepend))
 
 ; Различные доступы к элементам структур, состоящих из пар (списки)
 (define head car)
@@ -86,3 +87,10 @@
 ; Проверка статуса завершения процесса
 (define success? (compose zero? status:exit-val))
 (define fail? (compose not success?)) 
+
+; Довольно часто приходится формировать списки по условиям: нечто нужно
+; пропускать, нечто -- добавлять, в зависимости от различных условий. Поэтому,
+; стандартный трюк в стиле Клейсли с действиями pass и prepend.
+
+(define pass identity)
+(define (prepend . arguments) (lambda (l) (append arguments l)))  

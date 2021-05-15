@@ -5,14 +5,8 @@
                #:use-module (ice-9 format) 
                #:use-module (lact utils) 
                #:export (dump-parse-error
-                         ; dump-error 
                          lact-error-handler
                          error-if-system-exception))
-
-; ; Вывод сообщения в стандартный поток ошибок
-; (define dump-error
-;   (let ((p (current-error-port)))
-;     (lambda (fmt . args) (apply format p fmt args) (force-output p))))
 
 ; Вывод сообщения об ошибке разбора. Форма данных об ошибке -- это список строк,
 ; первой из которых является исходная строка, за которым следует список строк с

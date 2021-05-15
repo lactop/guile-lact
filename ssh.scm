@@ -12,7 +12,7 @@
                #:use-module (lact error-handling)
                #:export (ssh-command rsync-command shell-expression
                          ssh-key-description
-                         ensure-key!))
+                         ensure-key! key:public key:private key:name))
 
 (define (strings-inhabited? . S) (every string-inhabited? S))
 
@@ -35,12 +35,6 @@
         ; Иначе, возвращатель адреса хоста
         identity)))
 
-; Надо формировать командные строки в виде списков слов. Нечто придётся
-; пропускать, нечто -- добавлять, в зависимости от различных условий. Поэтому,
-; стандартный трюк в стиле Клейсли с действиями pass и prepend.
-
-(define pass identity)
-(define (prepend . arguments) (lambda (l) (append arguments l))) 
 
 (define (ssh-command user key command)
   (let ((part-1 (compose (prepend "ssh"
@@ -94,12 +88,15 @@
 ; ПРОЦЕДУРЫ ДЛЯ РАБОТЫ С SSH-КЛЮЧАМИ
 
 (define-immutable-record-type SSH-Key
-  (ssh-key key pub path comment)
+  (ssh-key key pub path comment public private name)
   ssk-key?
   (key k:key)
   (pub k:pub)
   (path k:path)
-  (comment k:comment)) 
+  (comment k:comment)
+  (public key:public)
+  (private key:private)
+  (name key:name)) 
 
 (define ssh-key-description
   (let ((u (getenv "USER"))
@@ -146,7 +143,8 @@
       (begin (ensure-path! (k:path k))
              (ssh-keygen k)))
   ; Пара строк, содержащих открытый и закрытый ключи
-  (values (with-input-from-file (k:pub k) read-line)
-          (string-join (stream->list
-                         (port->string-stream (open-input-file (k:key k))))
-                       (string #\newline))))
+  (set-fields k
+              ((key:public) (with-input-from-file (k:pub k) read-line))
+              ((key:private) (string-join (stream->list
+                                            (port->string-stream (open-input-file (k:key k))))
+                                          (string #\newline)))))
