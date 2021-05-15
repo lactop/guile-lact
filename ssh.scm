@@ -102,14 +102,14 @@
   (let ((u (getenv "USER"))
         (h (gethostname)))
     (lambda (path service)
-      (let-values (((C P) (let ((n (if (string-null? service)
-                                       "generic"
-                                       service)))
-                            (values
-                              (format #f "~a key for ~a@~a" n u h)
-                              (format #f "~a/~a-~a-~a-rsa-key" path n u h))))
-                   ((path-items) (split-path path)))
-        (ssh-key P (string-append P ".pub") path-items C)))))
+      (let* ((n (format #f "~a-~a-~a-rsa-key"
+                        (if (string-null? service) "generic" service)
+                        u
+                        h))
+             (C (format #f "~a key for ~a@~a" n u h))
+             (P (format #f "~a/~a" path n))
+             (path-items (split-path path)))
+        (ssh-key P (string-append P ".pub") path-items C "" "" n)))))
 
 (define (key-exists? k)
   ; В content список из пар (имя . содержимое файла по мнению утилиты file)
