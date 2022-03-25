@@ -363,3 +363,98 @@
 ; >= ((a . 1) (c . 3) (b . 2))
 
 ; Sat Mar 26 10:28:33 AM +05 2022
+
+; Дальше по списку перебор с возвратами (aka backtracking). На примере задачи
+; SAT. Это поиск значений переменных, удовлетворяющих логической формуле.
+
+(define (structure? op arity) (lambda (form) (and (list? form)
+                                                (= (1+ arity) (length form))
+                                                (eq? op (car form)))))
+(define not? (structure? 'not 1))
+(define negand second) ; Это аргумент отрицания 
+
+(define and? (structure? 'and 2))
+(define conjunct-1 second)
+(define conjunct-2 third)
+
+(define or? (structure? 'or 2))
+(define disjunct-1 second)
+(define disjunct-2 third)
+
+(define bf1 '(and (or a (or b c)) (and (not a) (not b))))
+
+(define (satisfy formula)
+  (sat formula
+       (env-empty)
+       (lambda (b asst fail) (if b asst (fail)))
+       (lambda () 'failed)))
+
+; Традиционно: φ - формула, Γ - окружение, назначение переменных
+(define (sat φ Γ succ fail)
+  (cond ((boolean? φ) (succ φ Γ fail))
+        ((symbol? φ)
+         (env-lookup φ Γ
+                     (lambda (b) (succ b Γ fail))
+                     (lambda ()
+                       (succ #t
+                             (env-extend φ #t Γ)
+                             (lambda ()
+                               (succ #f (env-extend φ #f Γ) fail))))))
+        ((not? φ)
+         (sat (negand φ) Γ 
+              (lambda (b Γ1 fail1) (succ (not b) Γ1 fail1))
+              fail))
+        ((and? φ)
+         (sat (conjunct-1 φ) Γ
+              (lambda (b1 Γ1 fail1)
+                (if b1
+                  (sat (conjunct-2 φ) Γ1 succ fail1)
+                  (succ #f Γ1 fail1)))
+              fail))
+        ((or? φ)
+         (sat (disjunct-1 φ) Γ
+              (lambda (b1 Γ1 fail1)
+                (if b1
+                  (succ #t Γ1 fail1)
+                  (sat (disjunct-2 φ) Γ1 succ fail1)))
+              fail))
+        (else (error 'illegal-form φ))))
+
+(satisfy bf1)
+; => ((c . #t) (b . #f) (a . #f))
+
+(satisfy '(and (not a) a))
+; =>  failed
+
+; Хорошо, вроде как, работает. Это довольно хитрый цикл со множеством курсоров,
+; которые показывают на текущие участки формул и на откаты через fail. Вопрос,
+; конечно, насколько это эффективно и насколько это неэффективно.
+
+; Чтобы построить структуру перебора по структуре формулы и чтобы явно не
+; управлять всем этим протаскиванием (threading) окружений и откатов, которые
+; однообразны, можно использовать каррирование. Мы выносим точки отката и
+; окружения
+
+(define (satisfy φ)
+  ((sat φ (lambda (b) (lambda (fail Γ) (if b Γ (fail)))))
+   (lambda () 'failed)
+   (env-empty)))
+
+(define (sat φ succ)
+  (cond ((boolean? φ) (succ φ))
+        ((symbol? φ)
+         (lambda (fail Γ)
+           (env-lookup φ Γ
+                       (lambda (b) ((succ b) fail Γ))
+                       (lambda () ((succ #t)
+                                   (lambda () ((succ #f) fail (env-extend φ #f Γ)))
+                                   (env-extend φ #t Γ))))))
+        ((not? φ) (sat (negand φ) (lambda (b) (succ (not b)))))
+        ((and? φ) (sat (conjunct-1 φ)
+                       (lambda (b1) (if b1 (sat (conjunct-2 φ) succ) (succ #f)))))
+        ((or? φ) (sat (disjunct-1 φ)
+                      (lambda (b1) (if b1 (succ #t) (sat (disjunct-2 φ) succ)))))
+        (else (error 'illegal-form φ))))
+
+(satisfy bf1)
+(satisfy '(or a b))
