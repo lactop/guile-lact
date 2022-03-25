@@ -8,6 +8,11 @@
 (define right cdr)
 (define leaf? (compose not pair?)) 
 
+(define dump
+  (let ((p (current-output-port)))
+    (lambda (fmt . args)
+      (apply format p (string-append fmt "~%") args))))
+
 ; Двойной проход. Это не годится, потому что проход по дереву выполняется
 ; последовательно и целиком. Не подойдёт для обработки потока событий, по
 ; которому нельзя пройти целиком за раз.
@@ -164,15 +169,99 @@
 
 ; В книге предлагается поправить это всё. Надо сделать для лучшего понимания.
 
+; Fri Mar 25 08:39:21 AM +05 2022
+
 (define (count-from-1 num)
-  #f
-  )
+  ((rec produce (lambda (n)
+                  (lambda (consumer)
+                    ; Нечто новое формируется, когда есть consumer
+                    (format #t "generating: ~a~%" n)
+                    (consumer n
+                              ; Решать нужна ли следующая итерация будет consumer
+                              (lambda () (produce (1+ n)))))))
+   num))
 
 (define (add-first-1 length)
-  #f
-  )
+  ((rec consume (lambda (len sum)
+                  (lambda (value producer)
+                    (if (zero? len)
+                      sum
+                      (begin
+                        (format #t "consuming: ~a~%" value)
+                        ((producer) (consume (1- len) (+ sum value))))))))
+   length 0))
+
+; Этот вариант лучше
+((count-from-1 3) (add-first-1 1))
+; generating: 3
+; consuming: 3
+; generating: 4
+; => 3
+
+; Но, всё равно, одно значение генерируется, даже если оно не нужно
+((count-from-1 20) (add-first-1 0))
+; generating: 20
+; =>  0
+
+; Хорошо. Вопрос: а как генерировать исключительно по запросу? В генераторе
+; только одна переменная состояния, дополнительный rec не нужен
 
 
-; Thu Mar 24 11:09:49 PM +05 2022
 
-; Так. Дальше обработка ошибок. Не сложно догадаться, что речь по
+(define (count-from-2 num)
+  (dump "P: expecting consumer")
+  (lambda (consumer)
+    (dump "P: consumer ~s" consumer)
+    (consumer
+      (lambda (next)
+        (format #t "P: next: ~a~%" next)
+        (format #t "P: generating: ~a~%" num)
+        (next num (count-from-2 (1+ num)))))))
+
+(define (add-first-2 length)
+  ((rec consume
+        (lambda (len sum)
+          (dump "C: expecting producer")
+          (lambda (producer)
+            (dump "C: producer ~s" producer)
+            (if (zero? len)
+              sum
+              (producer (lambda (v next)
+                          (format #t "C: consuming: ~a, next: ~s~%" v
+                                  next)
+                          (next (consume (1- len) (+ v sum))))))))) ; †
+   length 0))
+
+((count-from-2 3) (add-first-2 2)) ; ‡
+
+; Видно по отладочному коду, насколько это всё не очевидно. Проблема была в
+; строке †, которая должна повторять вызов верхнего уровня в строке ‡. Чистые
+; варианты:
+
+(define (count-from-2 num)
+  (lambda (consumer)
+    (consumer
+      (lambda (next)
+        (dump "P: generating: ~a" num)
+        (next num (count-from-2 (1+ num)))))))
+
+(define (add-first-2 length)
+  ((rec consume
+        (lambda (len sum)
+          (lambda (producer)
+            (if (zero? len)
+              sum
+              (producer (lambda (v next)
+                          (dump "C: consuming: ~s" v)
+                          (next (consume (1- len) (+ v sum)))))))))
+   length 0))
+
+((count-from-2 3) (add-first-2 2))
+; P: generating: 3
+; C: consuming: 3
+; P: generating: 4
+; C: consuming: 4
+; => 7
+
+((count-from-2 4) (add-first-2 0))
+; => 0
