@@ -3,9 +3,13 @@
 ; Видимо, это отдельная задача, на которую следует отдельно и смотреть. Сперва
 ; пощупаем то, что есть в DCPL. Это задача producer/consumer
 
+(define pair cons)
+(define fst car)
+(define snd cdr)
+
 (define node cons)
-(define left car)
-(define right cdr)
+(define left fst)
+(define right snd)
 (define leaf? (compose not pair?)) 
 
 (define dump
@@ -24,7 +28,6 @@
            (sum (lambda (t)
                   (if (leaf? t) t (+ (sum (left t)) (sum (right t)))))))
     (* (height tree) (sum tree))))
-
 
 ; Совместный проход. Он будет один, но основная процедура - inner в данном
 ; случае - сформирована заранее. А нам нужна динамика: открываются/закрвыаются
@@ -265,3 +268,98 @@
 
 ((count-from-2 4) (add-first-2 0))
 ; => 0
+
+; Fri Mar 25 01:30:30 PM +05 2022
+
+; Дальше обработка ошибок. Видимо, про failure- и success-продолжения. На работы
+; с окружениями
+
+(define (env-empty) (list))
+
+(define (env-lookup name env succ fail)
+  (if (null? env)
+    (fail)
+    (let ((binding (car env)))
+      (if (eq? name (fst binding))
+        (succ (snd binding))
+        (env-lookup name (cdr env) succ fail)))))
+
+(define (env-extend-loop name value env succ fail)
+  (if (null? env)
+    (fail)
+    (let ((binding (car env)))
+      (if (eq? name (fst binding))
+        (succ (cons (pair name value) (cdr env)))
+        (env-extend-loop name value (cdr env)
+                         (lambda (bindings) (succ (cons binding bindings)))
+                         fail)))))
+
+; В env-extend-loop довольно хитрая рекурсия. Она хвостовая, но в
+; succ-передаётся всё более сложная lambda. Однако lambda-ы в Scheme
+; относительно дешёвые. Это просто пара ссылок на окружение и на код. Поэтому
+; получается нечто вроде связного списка, где связь устанавливается через
+; предыдущую lambda, а именно, через succ. Полная картина такая: ссылка на succ
+; живёт в окружении, на это окружение будет ссылка из новой lambda, которая
+; станет следующим succ-продолжением. Абстрактно, это выглядит, как связный
+; список. Конкретно, конечно, не самая эффективная его представление.
+
+(define (env-extend name value env)
+  (env-extend-loop name value env
+                   (lambda (bindings) bindings)
+                   (lambda () (cons (pair name value) env))))
+
+(define (env-merge env1 env2)
+  (fold-right (lambda (binding env) (env-extend (fst binding) (snd binding) env))
+              env2
+              env1))
+
+(define E1 (env-extend 'a 3 (env-extend 'b 2 (env-extend 'a 1 (env-empty)))))
+
+(define (env-test1 names env)
+  (map (lambda (name) (env-lookup name env identity (const '*unbound*))) names))
+
+(env-test1 '(a b c) E1)
+; => (3 2 *unbound*)
+
+(define (env-test2 names env)
+  (let loop ((ns names)
+             (k identity))
+    (if (null? ns)
+      (k '())
+      (env-lookup (car ns)
+                  env
+                  (lambda (val) ; †
+                    (loop (cdr ns) (lambda (bindings)
+                                     (k (cons (pair (car ns) val) bindings)))))
+                  (lambda () (loop (cdr ns) k)))))) ; ‡
+
+(env-test2 '(a b c) E1)
+; => ((a . 3) (b . 2))
+
+; Работает env-test2 по встретившемуся уже принципу: замыкания использованы в
+; виде связного списка. Связь устанавливается через ссылку в окружении на k и
+; через ссылку на некоторый подсписок имён. Остальные идентификаторы в
+; продолжениях † и ‡ привязаны к окружению верхнего уровня, или связаны
+; lambda-ой. Не самый эффективный способ, но и не самый неэффективный.
+
+; Можно применить эту же идею к конструкции самих окружений
+
+(define (env-empty) (lambda (name succ fail) (fail)))
+
+(define (env-lookup name env succ fail) (env name succ fail))
+
+(define (env-extend name value env) (lambda (name-needed succ fail)
+                                      (if (eq? name name-needed)
+                                        (succ value)
+                                        (env name-needed succ fail))))
+
+(define (env-merge e1 e2)
+  (lambda (name succ fail)
+    (e1 name succ (lambda () (e2 name succ fail)))))
+
+; Здесь переопределена конструкция окружений. Но они работают по-прежнему.
+(define E1 (env-extend 'a 1 (env-extend 'b 2 (env-extend 'c 3 (env-empty)))))
+(env-test2 '(a c b d e f) E1)
+; >= ((a . 1) (c . 3) (b . 2))
+
+; Sat Mar 26 10:28:33 AM +05 2022
