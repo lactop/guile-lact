@@ -4,6 +4,7 @@
 (define-module (lact utils)
                #:use-module (srfi srfi-1)
                #:use-module (srfi srfi-41)
+               #:use-module (ice-9 vlist)
                #:use-module ((ice-9 rdelim) #:select (read-line))
                #:use-module (ice-9 popen)
                #:export (head tail
@@ -18,7 +19,8 @@
                          spawn
                          collect-pid
                          success? fail?
-                         pass prepend))
+                         pass prepend
+                         dedup))
 
 ; Различные доступы к элементам структур, состоящих из пар (списки)
 (define head car)
@@ -94,3 +96,12 @@
 
 (define pass identity)
 (define (prepend . arguments) (lambda (l) (append arguments l)))  
+
+; Очистка списка от повторов. FIXME: не самая эффективная рекурсия
+(define (dedup L)
+  (let lp ((H vlist-null)
+           (l L))
+    (cond ((null? l) '())
+          ((pair? (vhash-assoc (car l) H)) (lp H (cdr l)))
+          (else (cons (car l)
+                      (lp (vhash-cons (car l) #t H) (cdr l)))))))
